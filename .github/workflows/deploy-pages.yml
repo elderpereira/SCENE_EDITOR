@@ -36,13 +36,20 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Prepare Pages artifact
+        run: |
+          test -f dist/index.html
+          rm -rf _site
+          mkdir -p _site
+          cp -R dist/. _site/
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: _site
 
   deploy:
     runs-on: ubuntu-latest
@@ -53,4 +60,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
