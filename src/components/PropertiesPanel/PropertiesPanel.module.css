@@ -1,0 +1,110 @@
+.panel {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.header {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-panel-border);
+}
+
+.empty {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-align: center;
+  padding-top: 20px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sectionTitle {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-accent);
+  margin-bottom: 2px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.readOnly {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--color-panel-border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checkRow {
+  display: flex;
+  gap: 14px;
+}
+
+.checkField {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.checkField input {
+  cursor: pointer;
+  accent-color: var(--color-accent);
+  width: auto;
+}
+
+.removeBtn {
+  margin-top: 4px;
+  width: 100%;
+}
+
+.descriptionInput {
+  width: 100%;
+  resize: vertical;
+  min-height: 64px;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-panel-border);
+  color: var(--color-text);
+  border-radius: 4px;
+  padding: 6px;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.actionsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.gapField {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

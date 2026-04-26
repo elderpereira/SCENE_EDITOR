@@ -1,0 +1,195 @@
+import { create } from 'zustand';
+import type { SceneConfig, SceneObject, SpriteAsset } from '../types/scene';
+import { generateId } from '../utils/generateId';
+import { toSnakeCase } from '../utils/snakeCase';
+
+interface SceneStore {
+  sprites: SpriteAsset[];
+  addSprite: (sprite: SpriteAsset) => void;
+  removeSprite: (key: string) => void;
+  renameSprite: (oldKey: string, newKey: string) => void;
+
+  sceneConfig: SceneConfig;
+  updateSceneConfig: (config: Partial<SceneConfig>) => void;
+
+  objects: SceneObject[];
+  addObject: (spriteKey: string, _sprites: SpriteAsset[], config: SceneConfig) => void;
+  updateObject: (id: string, changes: Partial<SceneObject>) => void;
+  removeObject: (id: string) => void;
+  duplicateObject: (id: string) => void;
+  moveObjectUp: (id: string) => void;
+  moveObjectDown: (id: string) => void;
+  arrangeObjectsInRow: (gap: number) => void;
+
+  selectedId: string | null;
+  setSelectedId: (id: string | null) => void;
+
+  showGrid: boolean;
+  toggleGrid: () => void;
+  snapToGrid: boolean;
+  toggleSnapToGrid: () => void;
+}
+
+export const useSceneStore = create<SceneStore>((set, get) => ({
+  sprites: [],
+  addSprite: (sprite) =>
+    set((state) => ({ sprites: [...state.sprites, sprite] })),
+  removeSprite: (key) =>
+    set((state) => ({
+      sprites: state.sprites.filter((s) => s.key !== key),
+    })),
+  renameSprite: (oldKey, newKey) =>
+    set((state) => ({
+      sprites: state.sprites.map((s) =>
+        s.key === oldKey ? { ...s, key: newKey } : s
+      ),
+      objects: state.objects.map((o) => {
+        if (o.spriteKey !== oldKey) return o;
+        return {
+          ...o,
+          spriteKey: newKey,
+          name: o.name === oldKey ? newKey : o.name,
+        };
+      }),
+    })),
+
+  sceneConfig: {
+    key: 'MinhaScene',
+    width: 1280,
+    height: 720,
+    background: '#1a1a2e',
+  },
+  updateSceneConfig: (config) =>
+    set((state) => ({ sceneConfig: { ...state.sceneConfig, ...config } })),
+
+  objects: [],
+  addObject: (spriteKey, _sprites, config) => {
+    const newObj: SceneObject = {
+      id: generateId(),
+      name: spriteKey,
+      description: '',
+      type: 'image',
+      spriteKey,
+      x: config.width / 2,
+      y: config.height / 2,
+      scaleX: 1,
+      scaleY: 1,
+      angle: 0,
+      depth: get().objects.length,
+      alpha: 1,
+      flipX: false,
+      flipY: false,
+    };
+    set((state) => ({ objects: [...state.objects, newObj], selectedId: newObj.id }));
+  },
+  updateObject: (id, changes) =>
+    set((state) => ({
+      objects: state.objects.map((obj) =>
+        obj.id === id ? { ...obj, ...changes } : obj
+      ),
+    })),
+  removeObject: (id) =>
+    set((state) => ({
+      objects: state.objects.filter((obj) => obj.id !== id),
+      selectedId: state.selectedId === id ? null : state.selectedId,
+    })),
+  duplicateObject: (id) =>
+    set((state) => {
+      const source = state.objects.find((o) => o.id === id);
+      if (!source) return state;
+
+      const usedNames = state.objects.map((o) => o.name);
+      const baseName = toSnakeCase(`${source.name}_copy`) || 'obj_copy';
+      let newName = baseName;
+      let i = 2;
+      while (usedNames.includes(newName)) {
+        newName = `${baseName}_${i}`;
+        i += 1;
+      }
+
+      const maxDepth = state.objects.reduce((acc, obj) => Math.max(acc, obj.depth), 0);
+      const clone: SceneObject = {
+        ...source,
+        id: generateId(),
+        name: newName,
+        x: source.x + 32,
+        y: source.y + 32,
+        depth: maxDepth + 1,
+      };
+
+      return {
+        objects: [...state.objects, clone],
+        selectedId: clone.id,
+      };
+    }),
+  moveObjectUp: (id) =>
+    set((state) => {
+      const sorted = [...state.objects].sort((a, b) => a.depth - b.depth);
+      const idx = sorted.findIndex((o) => o.id === id);
+      if (idx <= 0) return state;
+      const prev = sorted[idx - 1];
+      const curr = sorted[idx];
+      const prevDepth = prev.depth;
+      const currDepth = curr.depth;
+      return {
+        objects: state.objects.map((o) => {
+          if (o.id === curr.id) return { ...o, depth: prevDepth };
+          if (o.id === prev.id) return { ...o, depth: currDepth };
+          return o;
+        }),
+      };
+    }),
+  moveObjectDown: (id) =>
+    set((state) => {
+      const sorted = [...state.objects].sort((a, b) => a.depth - b.depth);
+      const idx = sorted.findIndex((o) => o.id === id);
+      if (idx < 0 || idx >= sorted.length - 1) return state;
+      const next = sorted[idx + 1];
+      const curr = sorted[idx];
+      const nextDepth = next.depth;
+      const currDepth = curr.depth;
+      return {
+        objects: state.objects.map((o) => {
+          if (o.id === curr.id) return { ...o, depth: nextDepth };
+          if (o.id === next.id) return { ...o, depth: currDepth };
+          return o;
+        }),
+      };
+    }),
+  arrangeObjectsInRow: (gap) =>
+    set((state) => {
+      if (state.objects.length <= 1) return state;
+
+      const sorted = [...state.objects].sort((a, b) => a.depth - b.depth);
+      const anchorY = state.selectedId
+        ? (state.objects.find((o) => o.id === state.selectedId)?.y ?? sorted[0].y)
+        : sorted[0].y;
+
+      let cursorX = 32;
+      const layoutMap = new Map<string, { x: number; y: number }>();
+
+      for (const obj of sorted) {
+        const sprite = state.sprites.find((s) => s.key === obj.spriteKey);
+        const objWidth = (sprite?.width ?? 64) * Math.abs(obj.scaleX);
+
+        layoutMap.set(obj.id, { x: cursorX + objWidth / 2, y: anchorY });
+        cursorX += objWidth + Math.max(0, gap);
+      }
+
+      return {
+        objects: state.objects.map((obj) => {
+          const pos = layoutMap.get(obj.id);
+          if (!pos) return obj;
+          return { ...obj, x: pos.x, y: pos.y };
+        }),
+      };
+    }),
+
+  selectedId: null,
+  setSelectedId: (id) => set({ selectedId: id }),
+
+  showGrid: false,
+  toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
+  snapToGrid: false,
+  toggleSnapToGrid: () => set((state) => ({ snapToGrid: !state.snapToGrid })),
+}));

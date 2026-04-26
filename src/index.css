@@ -1,0 +1,97 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-bg: #0f0f1a;
+  --color-panel: #16213e;
+  --color-panel-border: #2a2a4a;
+  --color-accent: #7c4dff;
+  --color-accent-hover: #9c6dff;
+  --color-text: #e0e0e0;
+  --color-text-muted: #888;
+  --color-input-bg: #0d1b2a;
+  --panel-width: 220px;
+  --props-width: 240px;
+  --toolbar-height: 52px;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: var(--color-accent);
+  color: #fff;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+
+button:hover {
+  background: var(--color-accent-hover);
+}
+
+button.secondary {
+  background: var(--color-panel-border);
+  color: var(--color-text);
+}
+
+button.secondary:hover {
+  background: #3a3a5a;
+}
+
+button.danger {
+  background: #c0392b;
+}
+
+button.danger:hover {
+  background: #e74c3c;
+}
+
+input[type='text'],
+input[type='number'],
+input[type='color'] {
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-panel-border);
+  color: var(--color-text);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 12px;
+  width: 100%;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+input[type='number']::-webkit-inner-spin-button {
+  opacity: 0.5;
+}
+
+input[type='color'] {
+  padding: 1px 2px;
+  height: 28px;
+  cursor: pointer;
+}
+
+label {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  display: block;
+  margin-bottom: 2px;
+}

@@ -1,0 +1,74 @@
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 7px;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.1s, border-color 0.1s;
+  user-select: none;
+}
+
+.item:hover {
+  background: rgba(124, 77, 255, 0.12);
+  border-color: var(--color-accent);
+}
+
+.thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 3px;
+  background: #0d1b2a;
+  flex-shrink: 0;
+  border: 1px solid var(--color-panel-border);
+}
+
+.info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.key {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.keyInput {
+  width: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--color-panel-border);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-text);
+  padding: 2px 4px;
+}
+
+.keyInput:focus {
+  outline: 1px solid var(--color-accent);
+}
+
+.dims {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.removeBtn {
+  background: none;
+  color: #c0392b;
+  font-size: 14px;
+  padding: 0 4px;
+  line-height: 1;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.removeBtn:hover {
+  background: none;
+  opacity: 1;
+}
