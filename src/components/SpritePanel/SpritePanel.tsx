@@ -5,6 +5,26 @@ import { toUniqueSnakeCase } from '../../utils/snakeCase';
 import { SpriteItem } from './SpriteItem';
 import styles from './SpritePanel.module.css';
 
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(reader.error ?? new Error('Falha ao ler arquivo'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function getImageSize(url: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => reject(new Error('Falha ao carregar imagem'));
+    img.src = url;
+  });
+}
+
 export function SpritePanel() {
   const sprites = useSceneStore((s) => s.sprites);
   const addSprite = useSceneStore((s) => s.addSprite);
@@ -14,27 +34,32 @@ export function SpritePanel() {
   const sceneConfig = useSceneStore((s) => s.sceneConfig);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | null) {
     if (!files) return;
-    Array.from(files).forEach((file) => {
+    const usedKeys = new Set(sprites.map((sprite) => sprite.key));
+
+    for (const file of Array.from(files)) {
       if (!file.type.startsWith('image/')) return;
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => {
-        const baseName = file.name.replace(/\.[^.]+$/, '');
-        const key = toUniqueSnakeCase(baseName, sprites.map((s) => s.key));
-        const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png';
-        const sprite: SpriteAsset = {
-          key,
-          url,
-          width: img.naturalWidth,
-          height: img.naturalHeight,
-          ext,
-        };
-        addSprite(sprite);
+      const url = await readFileAsDataUrl(file);
+      const { width, height } = await getImageSize(url);
+      const baseName = file.name.replace(/\.[^.]+$/, '');
+      const key = toUniqueSnakeCase(baseName, Array.from(usedKeys));
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png';
+      const sprite: SpriteAsset = {
+        key,
+        url,
+        width,
+        height,
+        ext,
       };
-      img.src = url;
-    });
+
+      usedKeys.add(key);
+      addSprite(sprite);
+    }
+
+    if (inputRef.current) {
+      inputRef.current.value = '';
+    }
   }
 
   return (
@@ -52,7 +77,9 @@ export function SpritePanel() {
         accept="image/*"
         multiple
         style={{ display: 'none' }}
-        onChange={(e) => handleFiles(e.target.files)}
+        onChange={(e) => {
+          void handleFiles(e.target.files);
+        }}
       />
 
       <div className={styles.list}>

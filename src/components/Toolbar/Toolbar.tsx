@@ -1,5 +1,7 @@
+import { useRef } from 'react';
 import { useSceneStore } from '../../store/useSceneStore';
 import { exportScene, exportSceneZip } from '../../utils/exportScene';
+import { buildProjectData, downloadProjectFile, readProjectFile } from '../../utils/projectFile';
 import styles from './Toolbar.module.css';
 
 export function Toolbar() {
@@ -11,10 +13,44 @@ export function Toolbar() {
   const toggleGrid = useSceneStore((s) => s.toggleGrid);
   const snapToGrid = useSceneStore((s) => s.snapToGrid);
   const toggleSnapToGrid = useSceneStore((s) => s.toggleSnapToGrid);
+  const loadProject = useSceneStore((s) => s.loadProject);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const saveProject = () => {
+    const data = buildProjectData(sceneConfig, objects, sprites, showGrid, snapToGrid);
+    downloadProjectFile(data);
+  };
+
+  const openProjectPicker = () => inputRef.current?.click();
+
+  const handleProjectFile = async (files: FileList | null) => {
+    if (!files?.length) return;
+
+    try {
+      const project = await readProjectFile(files[0]);
+      loadProject(project);
+    } catch {
+      window.alert('Nao foi possivel abrir esse arquivo de projeto.');
+    } finally {
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
+    }
+  };
 
   return (
     <div className={styles.toolbar}>
       <span className={styles.title}>⚡ Scene Editor</span>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/json,.json"
+        className={styles.hiddenInput}
+        onChange={(e) => {
+          void handleProjectFile(e.target.files);
+        }}
+      />
 
       <div className={styles.separator} />
 
@@ -78,6 +114,12 @@ export function Toolbar() {
 
       <div className={styles.spacer} />
 
+      <button className="secondary" onClick={openProjectPicker} title="Abrir projeto salvo em arquivo JSON">
+        📂 Abrir Projeto
+      </button>
+      <button className="secondary" onClick={saveProject} title="Baixar um arquivo do projeto atual">
+        💾 Salvar Projeto
+      </button>
       <button className="secondary" onClick={() => exportScene(sceneConfig, objects, sprites)}>
         ⬇ Exportar JSON
       </button>

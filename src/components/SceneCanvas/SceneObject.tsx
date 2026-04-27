@@ -48,7 +48,8 @@ export function SceneObject({ obj, sprites, isSelected, onSelect }: Props) {
         scaleY={obj.flipY ? -obj.scaleY : obj.scaleY}
         rotation={obj.angle}
         opacity={obj.alpha}
-        draggable
+        draggable={!obj.locked}
+        listening={!obj.locked}
         onClick={onSelect}
         onTap={onSelect}
         onDragEnd={(e) => {
@@ -79,7 +80,7 @@ export function SceneObject({ obj, sprites, isSelected, onSelect }: Props) {
           node.scaleY(obj.flipY ? -scaleY : scaleY);
         }}
       />
-      {isSelected && (
+      {isSelected && !obj.locked && (
         <Transformer
           ref={trRef}
           rotateEnabled

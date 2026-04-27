@@ -152,6 +152,21 @@ export function PropertiesPanel() {
       </div>
 
       <div className={styles.section}>
+        <div className={styles.sectionTitle}>Interacao</div>
+        <label className={styles.checkField}>
+          <input
+            type="checkbox"
+            checked={obj.locked}
+            onChange={(e) => upd({ locked: e.target.checked })}
+          />
+          Bloquear selecao e arraste no canvas
+        </label>
+        <p className={styles.helpText}>
+          Quando bloqueado, o clique atravessa esse objeto e seleciona o que estiver por baixo.
+        </p>
+      </div>
+
+      <div className={styles.section}>
         <div className={styles.sectionTitle}>Ações Rápidas</div>
         <div className={styles.actionsRow}>
           <button className="secondary" onClick={() => duplicateObject(obj.id)}>

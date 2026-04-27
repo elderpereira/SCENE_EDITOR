@@ -1,7 +1,24 @@
 import { create } from 'zustand';
-import type { SceneConfig, SceneObject, SpriteAsset } from '../types/scene';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import type { EditorProjectData, SceneConfig, SceneObject, SpriteAsset } from '../types/scene';
 import { generateId } from '../utils/generateId';
 import { toSnakeCase } from '../utils/snakeCase';
+
+const STORAGE_KEY = 'scene-editor-project';
+
+const DEFAULT_SCENE_CONFIG: SceneConfig = {
+  key: 'MinhaScene',
+  width: 1280,
+  height: 720,
+  background: '#1a1a2e',
+};
+
+function normalizeObjects(objects: SceneObject[]): SceneObject[] {
+  return objects.map((obj) => ({
+    ...obj,
+    locked: obj.locked ?? false,
+  }));
+}
 
 interface SceneStore {
   sprites: SpriteAsset[];
@@ -24,13 +41,15 @@ interface SceneStore {
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
 
+  loadProject: (project: EditorProjectData) => void;
+
   showGrid: boolean;
   toggleGrid: () => void;
   snapToGrid: boolean;
   toggleSnapToGrid: () => void;
 }
 
-export const useSceneStore = create<SceneStore>((set, get) => ({
+export const useSceneStore = create<SceneStore>()(persist((set, get) => ({
   sprites: [],
   addSprite: (sprite) =>
     set((state) => ({ sprites: [...state.sprites, sprite] })),
@@ -53,12 +72,7 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
       }),
     })),
 
-  sceneConfig: {
-    key: 'MinhaScene',
-    width: 1280,
-    height: 720,
-    background: '#1a1a2e',
-  },
+  sceneConfig: DEFAULT_SCENE_CONFIG,
   updateSceneConfig: (config) =>
     set((state) => ({ sceneConfig: { ...state.sceneConfig, ...config } })),
 
@@ -79,6 +93,7 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
       alpha: 1,
       flipX: false,
       flipY: false,
+      locked: false,
     };
     set((state) => ({ objects: [...state.objects, newObj], selectedId: newObj.id }));
   },
@@ -187,9 +202,42 @@ export const useSceneStore = create<SceneStore>((set, get) => ({
 
   selectedId: null,
   setSelectedId: (id) => set({ selectedId: id }),
+  loadProject: (project) =>
+    set({
+      sprites: project.sprites,
+      sceneConfig: { ...DEFAULT_SCENE_CONFIG, ...project.sceneConfig },
+      objects: normalizeObjects(project.objects),
+      selectedId: null,
+      showGrid: project.showGrid,
+      snapToGrid: project.snapToGrid,
+    }),
 
   showGrid: false,
   toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
   snapToGrid: false,
   toggleSnapToGrid: () => set((state) => ({ snapToGrid: !state.snapToGrid })),
+}), {
+  name: STORAGE_KEY,
+  version: 1,
+  storage: createJSONStorage(() => localStorage),
+  partialize: (state) => ({
+    sprites: state.sprites,
+    sceneConfig: state.sceneConfig,
+    objects: state.objects,
+    showGrid: state.showGrid,
+    snapToGrid: state.snapToGrid,
+  }),
+  migrate: (persistedState) => {
+    const state = persistedState as Partial<SceneStore>;
+
+    return {
+      ...state,
+      sprites: state.sprites ?? [],
+      sceneConfig: { ...DEFAULT_SCENE_CONFIG, ...(state.sceneConfig ?? {}) },
+      objects: normalizeObjects((state.objects ?? []) as SceneObject[]),
+      showGrid: state.showGrid ?? false,
+      snapToGrid: state.snapToGrid ?? false,
+      selectedId: null,
+    } as Partial<SceneStore>;
+  },
 }));

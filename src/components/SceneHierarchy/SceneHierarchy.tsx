@@ -7,6 +7,7 @@ export function SceneHierarchy() {
   const setSelectedId = useSceneStore((s) => s.setSelectedId);
   const moveObjectUp = useSceneStore((s) => s.moveObjectUp);
   const moveObjectDown = useSceneStore((s) => s.moveObjectDown);
+  const updateObject = useSceneStore((s) => s.updateObject);
 
   const sorted = [...objects].sort((a, b) => a.depth - b.depth);
 
@@ -23,13 +24,19 @@ export function SceneHierarchy() {
         {sorted.map((obj, idx) => (
           <div
             key={obj.id}
-            className={`${styles.item} ${selectedId === obj.id ? styles.selected : ''}`}
+            className={`${styles.item} ${selectedId === obj.id ? styles.selected : ''} ${obj.locked ? styles.locked : ''}`}
             onClick={() => setSelectedId(obj.id)}
           >
             <span className={styles.icon}>🖼</span>
             <span className={styles.name}>{obj.name}</span>
+            {obj.locked && <span className={styles.state}>🔒</span>}
             <span className={styles.depth}>d:{obj.depth}</span>
             <div className={styles.orderBtns} onClick={(e) => e.stopPropagation()}>
+              <button
+                className={styles.orderBtn}
+                title={obj.locked ? 'Desbloquear no canvas' : 'Bloquear selecao no canvas'}
+                onClick={() => updateObject(obj.id, { locked: !obj.locked })}
+              >{obj.locked ? '🔓' : '🔒'}</button>
               <button
                 className={styles.orderBtn}
                 title="Subir camada"

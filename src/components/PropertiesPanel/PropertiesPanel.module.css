@@ -108,3 +108,10 @@
   flex-direction: column;
   gap: 2px;
 }
+
+.helpText {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}

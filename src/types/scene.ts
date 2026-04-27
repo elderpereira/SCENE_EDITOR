@@ -21,6 +21,7 @@ export interface SceneObject {
   alpha: number;
   flipX: boolean;
   flipY: boolean;
+  locked: boolean;
 }
 
 export interface SceneConfig {
@@ -28,4 +29,13 @@ export interface SceneConfig {
   width: number;
   height: number;
   background: string;
+}
+
+export interface EditorProjectData {
+  version: 1;
+  sprites: SpriteAsset[];
+  sceneConfig: SceneConfig;
+  objects: SceneObject[];
+  showGrid: boolean;
+  snapToGrid: boolean;
 }
