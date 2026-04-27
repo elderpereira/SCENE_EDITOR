@@ -101,7 +101,7 @@
 - [ ] Testar JSON importando manualmente em projeto Phaser 3 de teste
 
 ---
-
+ 
 ## Qualidade / Finalização
 
 - [x] Revisar tipagem TypeScript (sem `any` crítico)

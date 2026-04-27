@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react';
+import type Konva from 'konva';
 import { Stage, Layer, Rect, Line } from 'react-konva';
 import { useSceneStore } from '../../store/useSceneStore';
 import { SceneObject } from './SceneObject';
@@ -17,24 +18,90 @@ export function SceneCanvas() {
   const removeObject = useSceneStore((s) => s.removeObject);
   const showGrid = useSceneStore((s) => s.showGrid);
 
-  const stageRef = useRef<any>(null);
+  const stageRef = useRef<Konva.Stage>(null);
   const scaleRef = useRef(1);
   // isPanning tracks middle-mouse / space+drag pan state
   const isPanningRef = useRef(false);
   const lastPosRef = useRef({ x: 0, y: 0 });
 
+  const resetInteractions = useCallback(() => {
+    isPanningRef.current = false;
+
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    stage.container().style.cursor = '';
+
+    stage.find('Image').forEach((node) => {
+      const draggableNode = node as Konva.Node & {
+        isDragging?: () => boolean;
+        stopDrag?: () => void;
+      };
+
+      if (draggableNode.isDragging?.()) {
+        draggableNode.stopDrag?.();
+      }
+    });
+
+    stage.find('Transformer').forEach((node) => {
+      const transformerNode = node as Konva.Node & {
+        isTransforming?: () => boolean;
+        stopTransform?: () => void;
+      };
+
+      if (transformerNode.isTransforming?.()) {
+        transformerNode.stopTransform?.();
+      }
+    });
+
+    stage.batchDraw();
+  }, []);
+
   // Delete key handler
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        resetInteractions();
+        return;
+      }
+
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         const tag = (e.target as HTMLElement).tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA') return;
         removeObject(selectedId);
       }
     }
+
+    function onPointerRelease() {
+      resetInteractions();
+    }
+
+    function onWindowBlur() {
+      resetInteractions();
+    }
+
+    function onVisibilityChange() {
+      if (document.hidden) {
+        resetInteractions();
+      }
+    }
+
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedId, removeObject]);
+    window.addEventListener('mouseup', onPointerRelease);
+    window.addEventListener('touchend', onPointerRelease);
+    window.addEventListener('touchcancel', onPointerRelease);
+    window.addEventListener('blur', onWindowBlur);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('mouseup', onPointerRelease);
+      window.removeEventListener('touchend', onPointerRelease);
+      window.removeEventListener('touchcancel', onPointerRelease);
+      window.removeEventListener('blur', onWindowBlur);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [selectedId, removeObject, resetInteractions]);
 
   const handleWheel = useCallback((e: any) => {
     e.evt.preventDefault();
@@ -73,6 +140,10 @@ export function SceneCanvas() {
       e.evt.preventDefault();
       isPanningRef.current = true;
       lastPosRef.current = { x: e.evt.clientX, y: e.evt.clientY };
+      const stage = stageRef.current;
+      if (stage) {
+        stage.container().style.cursor = 'grabbing';
+      }
     }
   }
 
@@ -88,7 +159,7 @@ export function SceneCanvas() {
 
   function handleMouseUp(e: any) {
     if (e.evt.button === 1) {
-      isPanningRef.current = false;
+      resetInteractions();
     }
   }
 
@@ -132,6 +203,9 @@ export function SceneCanvas() {
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onMouseLeave={resetInteractions}
+        onTouchEnd={resetInteractions}
+        onTouchCancel={resetInteractions}
         onClick={(e) => {
           if (e.target === e.target.getStage() || e.target.name() === 'bg') {
             setSelectedId(null);
@@ -177,7 +251,7 @@ export function SceneCanvas() {
           ))}
         </Layer>
       </Stage>
-      <span className={styles.hint}>Scroll: zoom · Botão do meio: pan · Delete: remover selecionado · Snap via toggle na toolbar</span>
+      <span className={styles.hint}>Scroll: zoom · Botão do meio: pan · Esc: cancelar interacao presa · Delete: remover selecionado · Snap via toggle na toolbar</span>
     </div>
   );
 }
