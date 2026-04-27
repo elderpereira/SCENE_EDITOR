@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import type { EditorProjectData, SceneConfig, SceneObject, SpriteAsset } from '../types/scene';
 import { generateId } from '../utils/generateId';
 import { toSnakeCase } from '../utils/snakeCase';
+import { editorStorage } from '../utils/editorStorage';
 
 const STORAGE_KEY = 'scene-editor-project';
 
@@ -36,7 +37,8 @@ interface SceneStore {
   duplicateObject: (id: string) => void;
   moveObjectUp: (id: string) => void;
   moveObjectDown: (id: string) => void;
-  arrangeObjectsInRow: (gap: number) => void;
+  moveObjectToTop: (id: string) => void;
+  moveObjectToBottom: (id: string) => void;
 
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
@@ -171,31 +173,41 @@ export const useSceneStore = create<SceneStore>()(persist((set, get) => ({
         }),
       };
     }),
-  arrangeObjectsInRow: (gap) =>
+  moveObjectToTop: (id) =>
     set((state) => {
       if (state.objects.length <= 1) return state;
 
       const sorted = [...state.objects].sort((a, b) => a.depth - b.depth);
-      const anchorY = state.selectedId
-        ? (state.objects.find((o) => o.id === state.selectedId)?.y ?? sorted[0].y)
-        : sorted[0].y;
+      const idx = sorted.findIndex((o) => o.id === id);
+      if (idx <= 0) return state;
 
-      let cursorX = 32;
-      const layoutMap = new Map<string, { x: number; y: number }>();
-
-      for (const obj of sorted) {
-        const sprite = state.sprites.find((s) => s.key === obj.spriteKey);
-        const objWidth = (sprite?.width ?? 64) * Math.abs(obj.scaleX);
-
-        layoutMap.set(obj.id, { x: cursorX + objWidth / 2, y: anchorY });
-        cursorX += objWidth + Math.max(0, gap);
-      }
+      const reordered = [...sorted];
+      const [target] = reordered.splice(idx, 1);
+      reordered.unshift(target);
 
       return {
         objects: state.objects.map((obj) => {
-          const pos = layoutMap.get(obj.id);
-          if (!pos) return obj;
-          return { ...obj, x: pos.x, y: pos.y };
+          const nextDepth = reordered.findIndex((item) => item.id === obj.id);
+          return nextDepth < 0 ? obj : { ...obj, depth: nextDepth };
+        }),
+      };
+    }),
+  moveObjectToBottom: (id) =>
+    set((state) => {
+      if (state.objects.length <= 1) return state;
+
+      const sorted = [...state.objects].sort((a, b) => a.depth - b.depth);
+      const idx = sorted.findIndex((o) => o.id === id);
+      if (idx < 0 || idx === sorted.length - 1) return state;
+
+      const reordered = [...sorted];
+      const [target] = reordered.splice(idx, 1);
+      reordered.push(target);
+
+      return {
+        objects: state.objects.map((obj) => {
+          const nextDepth = reordered.findIndex((item) => item.id === obj.id);
+          return nextDepth < 0 ? obj : { ...obj, depth: nextDepth };
         }),
       };
     }),
@@ -219,7 +231,7 @@ export const useSceneStore = create<SceneStore>()(persist((set, get) => ({
 }), {
   name: STORAGE_KEY,
   version: 1,
-  storage: createJSONStorage(() => localStorage),
+  storage: createJSONStorage(() => editorStorage),
   partialize: (state) => ({
     sprites: state.sprites,
     sceneConfig: state.sceneConfig,
@@ -227,6 +239,13 @@ export const useSceneStore = create<SceneStore>()(persist((set, get) => ({
     showGrid: state.showGrid,
     snapToGrid: state.snapToGrid,
   }),
+  onRehydrateStorage: () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore browser storage access failures
+    }
+  },
   migrate: (persistedState) => {
     const state = persistedState as Partial<SceneStore>;
 

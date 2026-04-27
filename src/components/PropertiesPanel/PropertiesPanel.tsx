@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useSceneStore } from '../../store/useSceneStore';
 import styles from './PropertiesPanel.module.css';
 
@@ -39,8 +38,10 @@ export function PropertiesPanel() {
   const updateObject = useSceneStore((s) => s.updateObject);
   const removeObject = useSceneStore((s) => s.removeObject);
   const duplicateObject = useSceneStore((s) => s.duplicateObject);
-  const arrangeObjectsInRow = useSceneStore((s) => s.arrangeObjectsInRow);
-  const [rowGap, setRowGap] = useState(8);
+  const moveObjectUp = useSceneStore((s) => s.moveObjectUp);
+  const moveObjectDown = useSceneStore((s) => s.moveObjectDown);
+  const moveObjectToTop = useSceneStore((s) => s.moveObjectToTop);
+  const moveObjectToBottom = useSceneStore((s) => s.moveObjectToBottom);
 
   const obj = objects.find((o) => o.id === selectedId);
 
@@ -177,18 +178,19 @@ export function PropertiesPanel() {
           </button>
         </div>
         <div className={styles.actionsRow}>
-          <div className={styles.gapField}>
-            <label>Gap linha</label>
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={rowGap}
-              onChange={(e) => setRowGap(Number(e.target.value))}
-            />
-          </div>
-          <button className="secondary" onClick={() => arrangeObjectsInRow(rowGap)}>
-            Lado a lado
+          <button className="secondary" onClick={() => moveObjectUp(obj.id)}>
+            Subir 1
+          </button>
+          <button className="secondary" onClick={() => moveObjectDown(obj.id)}>
+            Descer 1
+          </button>
+        </div>
+        <div className={styles.actionsRow}>
+          <button className="secondary" onClick={() => moveObjectToTop(obj.id)}>
+            Enviar para frente
+          </button>
+          <button className="secondary" onClick={() => moveObjectToBottom(obj.id)}>
+            Enviar para trás
           </button>
         </div>
       </div>

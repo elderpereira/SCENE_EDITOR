@@ -103,12 +103,6 @@
   gap: 6px;
 }
 
-.gapField {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 .helpText {
   margin: 0;
   font-size: 11px;
