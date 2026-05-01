@@ -42,6 +42,10 @@ export function PropertiesPanel() {
   const moveObjectDown = useSceneStore((s) => s.moveObjectDown);
   const moveObjectToTop = useSceneStore((s) => s.moveObjectToTop);
   const moveObjectToBottom = useSceneStore((s) => s.moveObjectToBottom);
+  const hitboxEditMode = useSceneStore((s) => s.hitboxEditMode);
+  const setHitboxEditMode = useSceneStore((s) => s.setHitboxEditMode);
+  const removeLastHitboxPoint = useSceneStore((s) => s.removeLastHitboxPoint);
+  const clearHitboxPoints = useSceneStore((s) => s.clearHitboxPoints);
 
   const obj = objects.find((o) => o.id === selectedId);
 
@@ -62,6 +66,22 @@ export function PropertiesPanel() {
   const sourceHeight = sprite?.height ?? 1;
   const objectWidth = Math.round(sourceWidth * Math.abs(obj.scaleX));
   const objectHeight = Math.round(sourceHeight * Math.abs(obj.scaleY));
+
+  const switchToPolygon = () => {
+    if (obj.hitboxMode === 'polygon') return;
+
+    const defaultPoints = [
+      { x: obj.hitboxOffsetX, y: obj.hitboxOffsetY },
+      { x: obj.hitboxOffsetX + obj.hitboxWidth, y: obj.hitboxOffsetY },
+      { x: obj.hitboxOffsetX + obj.hitboxWidth, y: obj.hitboxOffsetY + obj.hitboxHeight },
+      { x: obj.hitboxOffsetX, y: obj.hitboxOffsetY + obj.hitboxHeight },
+    ];
+
+    upd({
+      hitboxMode: 'polygon',
+      hitboxPoints: obj.hitboxPoints.length > 0 ? obj.hitboxPoints : defaultPoints,
+    });
+  };
 
   return (
     <div className={styles.panel}>
@@ -164,6 +184,122 @@ export function PropertiesPanel() {
         </label>
         <p className={styles.helpText}>
           Quando bloqueado, o clique atravessa esse objeto e seleciona o que estiver por baixo.
+        </p>
+      </div>
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Hitbox</div>
+        <label className={styles.checkField}>
+          <input
+            type="checkbox"
+            checked={obj.hitboxEnabled}
+            onChange={(e) => {
+              const enabled = e.target.checked;
+              upd({ hitboxEnabled: enabled });
+              if (!enabled) {
+                setHitboxEditMode(false);
+              }
+            }}
+          />
+          Usar hitbox retangular custom
+        </label>
+        {obj.hitboxEnabled && (
+          <>
+            <div className={styles.hitboxModeRow}>
+              <button
+                className={`secondary ${obj.hitboxMode === 'rect' ? styles.activeModeBtn : ''}`}
+                onClick={() => {
+                  setHitboxEditMode(false);
+                  upd({ hitboxMode: 'rect' });
+                }}
+              >
+                Retangular
+              </button>
+              <button
+                className={`secondary ${obj.hitboxMode === 'polygon' ? styles.activeModeBtn : ''}`}
+                onClick={switchToPolygon}
+              >
+                Poligonal
+              </button>
+            </div>
+
+            {obj.hitboxMode === 'rect' && (
+              <>
+                <div className={styles.row}>
+                  <NumField
+                    label="Largura"
+                    value={Math.round(obj.hitboxWidth)}
+                    min={1}
+                    onChange={(v) => upd({ hitboxWidth: Math.max(1, v) })}
+                  />
+                  <NumField
+                    label="Altura"
+                    value={Math.round(obj.hitboxHeight)}
+                    min={1}
+                    onChange={(v) => upd({ hitboxHeight: Math.max(1, v) })}
+                  />
+                </div>
+                <div className={styles.row}>
+                  <NumField
+                    label="Offset X"
+                    value={Math.round(obj.hitboxOffsetX)}
+                    step={1}
+                    onChange={(v) => upd({ hitboxOffsetX: v })}
+                  />
+                  <NumField
+                    label="Offset Y"
+                    value={Math.round(obj.hitboxOffsetY)}
+                    step={1}
+                    onChange={(v) => upd({ hitboxOffsetY: v })}
+                  />
+                </div>
+                <button
+                  className="secondary"
+                  onClick={() => upd({
+                    hitboxOffsetX: -sourceWidth / 2,
+                    hitboxOffsetY: -sourceHeight / 2,
+                    hitboxWidth: sourceWidth,
+                    hitboxHeight: sourceHeight,
+                  })}
+                >
+                  Hitbox = sprite inteira
+                </button>
+              </>
+            )}
+
+            {obj.hitboxMode === 'polygon' && (
+              <>
+                <div className={styles.hitboxModeRow}>
+                  <button
+                    className={`secondary ${hitboxEditMode ? styles.activeModeBtn : ''}`}
+                    onClick={() => setHitboxEditMode(!hitboxEditMode)}
+                  >
+                    {hitboxEditMode ? 'Parar edicao no canvas' : 'Editar no canvas'}
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={() => removeLastHitboxPoint(obj.id)}
+                    disabled={obj.hitboxPoints.length === 0}
+                  >
+                    Remover ultimo ponto
+                  </button>
+                </div>
+                <div className={styles.hitboxModeRow}>
+                  <button
+                    className="secondary"
+                    onClick={() => clearHitboxPoints(obj.id)}
+                    disabled={obj.hitboxPoints.length === 0}
+                  >
+                    Limpar pontos
+                  </button>
+                  <span className={styles.pointsCount}>Pontos: {obj.hitboxPoints.length}</span>
+                </div>
+              </>
+            )}
+          </>
+        )}
+        <p className={styles.helpText}>
+          A hitbox usa coordenadas locais do objeto e fecha automaticamente no ultimo ponto para o primeiro.
         </p>
       </div>
 

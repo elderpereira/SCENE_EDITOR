@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { Image as KonvaImage, Transformer } from 'react-konva';
+import { Circle, Group, Image as KonvaImage, Line, Rect, Text, Transformer } from 'react-konva';
 import useImage from 'use-image';
 import type Konva from 'konva';
 import type { SceneObject as SceneObjectType, SpriteAsset } from '../../types/scene';
@@ -11,29 +11,36 @@ interface Props {
   obj: SceneObjectType;
   sprites: SpriteAsset[];
   isSelected: boolean;
+  hitboxEditMode: boolean;
   onSelect: () => void;
 }
 
-export function SceneObject({ obj, sprites, isSelected, onSelect }: Props) {
+export function SceneObject({ obj, sprites, isSelected, hitboxEditMode, onSelect }: Props) {
   const updateObject = useSceneStore((s) => s.updateObject);
+  const updateHitboxPoint = useSceneStore((s) => s.updateHitboxPoint);
   const snapToGrid = useSceneStore((s) => s.snapToGrid);
   const asset = sprites.find((s) => s.key === obj.spriteKey);
   const [image] = useImage(asset?.url ?? '', 'anonymous');
 
   const imageRef = useRef<Konva.Image>(null);
   const trRef = useRef<Konva.Transformer>(null);
+  const hitboxPoints = obj.hitboxPoints ?? [];
+  const isEditingPolygon = hitboxEditMode && obj.hitboxEnabled && obj.hitboxMode === 'polygon';
+  const canManipulateObject = !obj.locked && !hitboxEditMode;
 
   const snap = (value: number) => {
     if (!snapToGrid) return value;
     return Math.round(value / GRID_SIZE) * GRID_SIZE;
   };
 
+  const polygonPointsFlat = hitboxPoints.flatMap((point) => [point.x, point.y]);
+
   useEffect(() => {
-    if (isSelected && trRef.current && imageRef.current) {
+    if (isSelected && !hitboxEditMode && trRef.current && imageRef.current) {
       trRef.current.nodes([imageRef.current]);
       trRef.current.getLayer()?.batchDraw();
     }
-  }, [isSelected]);
+  }, [hitboxEditMode, isSelected]);
 
   return (
     <>
@@ -48,8 +55,8 @@ export function SceneObject({ obj, sprites, isSelected, onSelect }: Props) {
         scaleY={obj.flipY ? -obj.scaleY : obj.scaleY}
         rotation={obj.angle}
         opacity={obj.alpha}
-        draggable={!obj.locked}
-        listening={!obj.locked}
+        draggable={canManipulateObject}
+        listening={!obj.locked && !hitboxEditMode}
         onClick={onSelect}
         onTap={onSelect}
         onDragEnd={(e) => {
@@ -80,7 +87,87 @@ export function SceneObject({ obj, sprites, isSelected, onSelect }: Props) {
           node.scaleY(obj.flipY ? -scaleY : scaleY);
         }}
       />
-      {isSelected && !obj.locked && (
+      {isSelected && obj.hitboxEnabled && obj.hitboxMode === 'rect' && (
+        <Group
+          x={obj.x}
+          y={obj.y}
+          rotation={obj.angle}
+          scaleX={obj.flipX ? -obj.scaleX : obj.scaleX}
+          scaleY={obj.flipY ? -obj.scaleY : obj.scaleY}
+          listening={false}
+        >
+          <Rect
+            x={obj.hitboxOffsetX}
+            y={obj.hitboxOffsetY}
+            width={obj.hitboxWidth}
+            height={obj.hitboxHeight}
+            stroke="#00d1ff"
+            strokeWidth={1}
+            dash={[6, 4]}
+            fill="rgba(0, 209, 255, 0.12)"
+          />
+        </Group>
+      )}
+
+      {isSelected && obj.hitboxEnabled && obj.hitboxMode === 'polygon' && hitboxPoints.length > 0 && (
+        <Group
+          x={obj.x}
+          y={obj.y}
+          rotation={obj.angle}
+          scaleX={obj.flipX ? -obj.scaleX : obj.scaleX}
+          scaleY={obj.flipY ? -obj.scaleY : obj.scaleY}
+          listening={false}
+        >
+          <Line
+            points={polygonPointsFlat}
+            closed={hitboxPoints.length >= 3}
+            stroke="#00d1ff"
+            strokeWidth={2}
+            dash={[6, 4]}
+            fill={hitboxPoints.length >= 3 ? 'rgba(0, 209, 255, 0.12)' : undefined}
+          />
+        </Group>
+      )}
+
+      {isSelected && isEditingPolygon && (
+        <Group
+          x={obj.x}
+          y={obj.y}
+          rotation={obj.angle}
+          scaleX={obj.flipX ? -obj.scaleX : obj.scaleX}
+          scaleY={obj.flipY ? -obj.scaleY : obj.scaleY}
+        >
+          {hitboxPoints.map((point, index) => (
+            <Group key={`${obj.id}-hitbox-point-${index}`}>
+              <Circle
+                x={point.x}
+                y={point.y}
+                radius={6}
+                fill="#00d1ff"
+                stroke="#ffffff"
+                strokeWidth={1}
+                draggable
+                onDragMove={(e) => {
+                  updateHitboxPoint(obj.id, index, {
+                    x: e.target.x(),
+                    y: e.target.y(),
+                  });
+                }}
+              />
+              <Text
+                x={point.x + 8}
+                y={point.y - 8}
+                text={String(index + 1)}
+                fontSize={10}
+                fill="#ffffff"
+                listening={false}
+              />
+            </Group>
+          ))}
+        </Group>
+      )}
+
+      {isSelected && !obj.locked && !hitboxEditMode && (
         <Transformer
           ref={trRef}
           rotateEnabled

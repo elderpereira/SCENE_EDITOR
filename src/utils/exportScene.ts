@@ -31,6 +31,18 @@ function buildSceneData(config: SceneConfig, objects: SceneObject[], sprites: Sp
 				alpha: obj.alpha,
 				flipX: obj.flipX,
 				flipY: obj.flipY,
+				hitbox: {
+					enabled: obj.hitboxEnabled,
+					mode: obj.hitboxMode,
+					offsetX: Math.round(obj.hitboxOffsetX),
+					offsetY: Math.round(obj.hitboxOffsetY),
+					width: Math.round(obj.hitboxWidth),
+					height: Math.round(obj.hitboxHeight),
+					points: obj.hitboxPoints.map((point) => ({
+						x: Math.round(point.x),
+						y: Math.round(point.y),
+					})),
+				},
 			})),
 	};
 }
@@ -75,16 +87,33 @@ export async function exportSceneZip(
 		.slice()
 		.sort((a, b) => a.depth - b.depth)
 		.map(
-			(obj) =>
-				`    // ${obj.description || obj.name}` +
-				'\n' +
-				`    this.add.image(${Math.round(obj.x)}, ${Math.round(obj.y)}, '${obj.spriteKey}')` +
-				`.setScale(${obj.scaleX}, ${obj.scaleY})` +
-				`.setAngle(${obj.angle})` +
-				`.setDepth(${obj.depth})` +
-				`.setAlpha(${obj.alpha})` +
-				(obj.flipX || obj.flipY ? `.setFlipX(${obj.flipX}).setFlipY(${obj.flipY})` : '') +
-				';'
+			(obj, index) => {
+				const varName = `obj${index + 1}`;
+				let hitboxLine = '';
+				if (obj.hitboxEnabled && obj.hitboxMode === 'rect') {
+					hitboxLine = `\n    ${varName}.setInteractive(new Phaser.Geom.Rectangle(${Math.round(obj.hitboxOffsetX)}, ${Math.round(obj.hitboxOffsetY)}, ${Math.round(obj.hitboxWidth)}, ${Math.round(obj.hitboxHeight)}), Phaser.Geom.Rectangle.Contains);`;
+				}
+
+				if (obj.hitboxEnabled && obj.hitboxMode === 'polygon' && obj.hitboxPoints.length >= 3) {
+					const points = obj.hitboxPoints
+						.map((point) => `${Math.round(point.x)}, ${Math.round(point.y)}`)
+						.join(', ');
+					hitboxLine = `\n    ${varName}.setInteractive(new Phaser.Geom.Polygon([${points}]), Phaser.Geom.Polygon.Contains);`;
+				}
+
+				return (
+					`    // ${obj.description || obj.name}` +
+					'\n' +
+					`    const ${varName} = this.add.image(${Math.round(obj.x)}, ${Math.round(obj.y)}, '${obj.spriteKey}')` +
+					`.setScale(${obj.scaleX}, ${obj.scaleY})` +
+					`.setAngle(${obj.angle})` +
+					`.setDepth(${obj.depth})` +
+					`.setAlpha(${obj.alpha})` +
+					(obj.flipX || obj.flipY ? `.setFlipX(${obj.flipX}).setFlipY(${obj.flipY})` : '') +
+					';' +
+					hitboxLine
+				);
+			}
 		)
 		.join('\n');
 

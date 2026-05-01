@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { EditorProjectData, SceneConfig, SceneObject, SpriteAsset } from '../types/scene';
+import type { EditorProjectData, HitboxPoint, SceneConfig, SceneObject, SpriteAsset } from '../types/scene';
 import { generateId } from '../utils/generateId';
 import { toSnakeCase } from '../utils/snakeCase';
 import { editorStorage } from '../utils/editorStorage';
@@ -14,11 +14,32 @@ const DEFAULT_SCENE_CONFIG: SceneConfig = {
   background: '#1a1a2e',
 };
 
-function normalizeObjects(objects: SceneObject[]): SceneObject[] {
-  return objects.map((obj) => ({
-    ...obj,
-    locked: obj.locked ?? false,
-  }));
+function getSpriteSize(spriteKey: string, sprites: SpriteAsset[]) {
+  const sprite = sprites.find((item) => item.key === spriteKey);
+  return {
+    width: Math.max(1, sprite?.width ?? 64),
+    height: Math.max(1, sprite?.height ?? 64),
+  };
+}
+
+function normalizeObjects(objects: SceneObject[], sprites: SpriteAsset[]): SceneObject[] {
+  return objects.map((obj) => {
+    const size = getSpriteSize(obj.spriteKey, sprites);
+    const hitboxWidth = Math.max(1, obj.hitboxWidth ?? size.width);
+    const hitboxHeight = Math.max(1, obj.hitboxHeight ?? size.height);
+
+    return {
+      ...obj,
+      locked: obj.locked ?? false,
+      hitboxEnabled: obj.hitboxEnabled ?? false,
+      hitboxOffsetX: obj.hitboxOffsetX ?? -hitboxWidth / 2,
+      hitboxOffsetY: obj.hitboxOffsetY ?? -hitboxHeight / 2,
+      hitboxWidth,
+      hitboxHeight,
+      hitboxMode: obj.hitboxMode ?? 'rect',
+      hitboxPoints: obj.hitboxPoints ?? [],
+    };
+  });
 }
 
 interface SceneStore {
@@ -39,6 +60,13 @@ interface SceneStore {
   moveObjectDown: (id: string) => void;
   moveObjectToTop: (id: string) => void;
   moveObjectToBottom: (id: string) => void;
+
+  hitboxEditMode: boolean;
+  setHitboxEditMode: (enabled: boolean) => void;
+  addHitboxPoint: (id: string, point: HitboxPoint) => void;
+  updateHitboxPoint: (id: string, index: number, point: HitboxPoint) => void;
+  removeLastHitboxPoint: (id: string) => void;
+  clearHitboxPoints: (id: string) => void;
 
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
@@ -80,6 +108,7 @@ export const useSceneStore = create<SceneStore>()(persist((set, get) => ({
 
   objects: [],
   addObject: (spriteKey, _sprites, config) => {
+    const size = getSpriteSize(spriteKey, _sprites);
     const newObj: SceneObject = {
       id: generateId(),
       name: spriteKey,
@@ -96,6 +125,13 @@ export const useSceneStore = create<SceneStore>()(persist((set, get) => ({
       flipX: false,
       flipY: false,
       locked: false,
+      hitboxEnabled: false,
+      hitboxOffsetX: -size.width / 2,
+      hitboxOffsetY: -size.height / 2,
+      hitboxWidth: size.width,
+      hitboxHeight: size.height,
+      hitboxMode: 'rect',
+      hitboxPoints: [],
     };
     set((state) => ({ objects: [...state.objects, newObj], selectedId: newObj.id }));
   },
@@ -212,14 +248,62 @@ export const useSceneStore = create<SceneStore>()(persist((set, get) => ({
       };
     }),
 
+  hitboxEditMode: false,
+  setHitboxEditMode: (enabled) => set({ hitboxEditMode: enabled }),
+  addHitboxPoint: (id, point) =>
+    set((state) => ({
+      objects: state.objects.map((obj) => {
+        if (obj.id !== id) return obj;
+        return {
+          ...obj,
+          hitboxEnabled: true,
+          hitboxMode: 'polygon',
+          hitboxPoints: [...obj.hitboxPoints, point],
+        };
+      }),
+    })),
+  updateHitboxPoint: (id, index, point) =>
+    set((state) => ({
+      objects: state.objects.map((obj) => {
+        if (obj.id !== id) return obj;
+        return {
+          ...obj,
+          hitboxPoints: obj.hitboxPoints.map((current, i) =>
+            i === index ? point : current
+          ),
+        };
+      }),
+    })),
+  removeLastHitboxPoint: (id) =>
+    set((state) => ({
+      objects: state.objects.map((obj) => {
+        if (obj.id !== id) return obj;
+        return {
+          ...obj,
+          hitboxPoints: obj.hitboxPoints.slice(0, -1),
+        };
+      }),
+    })),
+  clearHitboxPoints: (id) =>
+    set((state) => ({
+      objects: state.objects.map((obj) => {
+        if (obj.id !== id) return obj;
+        return {
+          ...obj,
+          hitboxPoints: [],
+        };
+      }),
+    })),
+
   selectedId: null,
-  setSelectedId: (id) => set({ selectedId: id }),
+  setSelectedId: (id) => set({ selectedId: id, hitboxEditMode: false }),
   loadProject: (project) =>
     set({
       sprites: project.sprites,
       sceneConfig: { ...DEFAULT_SCENE_CONFIG, ...project.sceneConfig },
-      objects: normalizeObjects(project.objects),
+      objects: normalizeObjects(project.objects, project.sprites),
       selectedId: null,
+      hitboxEditMode: false,
       showGrid: project.showGrid,
       snapToGrid: project.snapToGrid,
     }),
@@ -230,7 +314,7 @@ export const useSceneStore = create<SceneStore>()(persist((set, get) => ({
   toggleSnapToGrid: () => set((state) => ({ snapToGrid: !state.snapToGrid })),
 }), {
   name: STORAGE_KEY,
-  version: 1,
+  version: 3,
   storage: createJSONStorage(() => editorStorage),
   partialize: (state) => ({
     sprites: state.sprites,
@@ -238,6 +322,7 @@ export const useSceneStore = create<SceneStore>()(persist((set, get) => ({
     objects: state.objects,
     showGrid: state.showGrid,
     snapToGrid: state.snapToGrid,
+    selectedId: state.selectedId,
   }),
   onRehydrateStorage: () => {
     try {
@@ -249,14 +334,22 @@ export const useSceneStore = create<SceneStore>()(persist((set, get) => ({
   migrate: (persistedState) => {
     const state = persistedState as Partial<SceneStore>;
 
+    const sprites = state.sprites ?? [];
+    const objects = normalizeObjects((state.objects ?? []) as SceneObject[], (sprites ?? []) as SpriteAsset[]);
+
+    const persistedSelectedId = (state.selectedId && objects.some((o) => o.id === state.selectedId))
+      ? state.selectedId
+      : null;
+
     return {
       ...state,
-      sprites: state.sprites ?? [],
+      sprites,
       sceneConfig: { ...DEFAULT_SCENE_CONFIG, ...(state.sceneConfig ?? {}) },
-      objects: normalizeObjects((state.objects ?? []) as SceneObject[]),
+      objects,
       showGrid: state.showGrid ?? false,
       snapToGrid: state.snapToGrid ?? false,
-      selectedId: null,
+      selectedId: persistedSelectedId,
+      hitboxEditMode: false,
     } as Partial<SceneStore>;
   },
 }));

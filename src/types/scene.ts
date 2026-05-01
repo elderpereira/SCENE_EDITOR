@@ -6,6 +6,11 @@ export interface SpriteAsset {
   ext: string;
 }
 
+export interface HitboxPoint {
+  x: number;
+  y: number;
+}
+
 export interface SceneObject {
   id: string;
   name: string;
@@ -22,6 +27,13 @@ export interface SceneObject {
   flipX: boolean;
   flipY: boolean;
   locked: boolean;
+  hitboxEnabled: boolean;
+  hitboxOffsetX: number;
+  hitboxOffsetY: number;
+  hitboxWidth: number;
+  hitboxHeight: number;
+  hitboxMode: 'rect' | 'polygon';
+  hitboxPoints: HitboxPoint[];
 }
 
 export interface SceneConfig {

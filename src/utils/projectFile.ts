@@ -45,6 +45,13 @@ export async function readProjectFile(file: File): Promise<EditorProjectData> {
     objects: raw.objects.map((obj) => ({
       ...obj,
       locked: obj.locked ?? false,
+      hitboxEnabled: obj.hitboxEnabled ?? false,
+      hitboxOffsetX: obj.hitboxOffsetX ?? -((obj.hitboxWidth ?? 64) / 2),
+      hitboxOffsetY: obj.hitboxOffsetY ?? -((obj.hitboxHeight ?? 64) / 2),
+      hitboxWidth: Math.max(1, obj.hitboxWidth ?? 64),
+      hitboxHeight: Math.max(1, obj.hitboxHeight ?? 64),
+      hitboxMode: obj.hitboxMode ?? 'rect',
+      hitboxPoints: obj.hitboxPoints ?? [],
     })),
     showGrid: raw.showGrid ?? false,
     snapToGrid: raw.snapToGrid ?? false,

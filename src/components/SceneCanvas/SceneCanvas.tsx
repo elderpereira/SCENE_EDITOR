@@ -17,6 +17,9 @@ export function SceneCanvas() {
   const setSelectedId = useSceneStore((s) => s.setSelectedId);
   const removeObject = useSceneStore((s) => s.removeObject);
   const showGrid = useSceneStore((s) => s.showGrid);
+  const hitboxEditMode = useSceneStore((s) => s.hitboxEditMode);
+  const addHitboxPoint = useSceneStore((s) => s.addHitboxPoint);
+  const selectedObject = objects.find((obj) => obj.id === selectedId) ?? null;
 
   const stageRef = useRef<Konva.Stage>(null);
   const scaleRef = useRef(1);
@@ -65,7 +68,7 @@ export function SceneCanvas() {
         return;
       }
 
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+      if (!hitboxEditMode && (e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         const tag = (e.target as HTMLElement).tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA') return;
         removeObject(selectedId);
@@ -101,9 +104,10 @@ export function SceneCanvas() {
       window.removeEventListener('blur', onWindowBlur);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [selectedId, removeObject, resetInteractions]);
+  }, [hitboxEditMode, selectedId, removeObject, resetInteractions]);
 
   const handleWheel = useCallback((e: any) => {
+    if (hitboxEditMode) return;
     e.evt.preventDefault();
     const stage = stageRef.current;
     if (!stage) return;
@@ -132,10 +136,11 @@ export function SceneCanvas() {
 
     stage.scale({ x: newScale, y: newScale });
     stage.position(newPos);
-  }, []);
+  }, [hitboxEditMode]);
 
   // Middle-mouse pan
   function handleMouseDown(e: any) {
+    if (hitboxEditMode) return;
     if (e.evt.button === 1) {
       e.evt.preventDefault();
       isPanningRef.current = true;
@@ -148,6 +153,7 @@ export function SceneCanvas() {
   }
 
   function handleMouseMove(e: any) {
+    if (hitboxEditMode) return;
     if (!isPanningRef.current) return;
     const stage = stageRef.current;
     if (!stage) return;
@@ -193,6 +199,29 @@ export function SceneCanvas() {
   // Sort objects by depth
   const sortedObjects = [...objects].sort((a, b) => a.depth - b.depth);
 
+  function stageToObjectLocal(point: { x: number; y: number }) {
+    if (!selectedObject) return null;
+
+    const sx = selectedObject.flipX ? -selectedObject.scaleX : selectedObject.scaleX;
+    const sy = selectedObject.flipY ? -selectedObject.scaleY : selectedObject.scaleY;
+    if (Math.abs(sx) < 0.0001 || Math.abs(sy) < 0.0001) return null;
+
+    const dx = point.x - selectedObject.x;
+    const dy = point.y - selectedObject.y;
+
+    const angle = (-selectedObject.angle * Math.PI) / 180;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    const rotatedX = dx * cos - dy * sin;
+    const rotatedY = dx * sin + dy * cos;
+
+    return {
+      x: rotatedX / sx,
+      y: rotatedY / sy,
+    };
+  }
+
   return (
     <div className={styles.wrapper}>
       <Stage
@@ -207,6 +236,21 @@ export function SceneCanvas() {
         onTouchEnd={resetInteractions}
         onTouchCancel={resetInteractions}
         onClick={(e) => {
+          if (hitboxEditMode && selectedObject?.hitboxMode === 'polygon') {
+            const isCanvasClick = e.target === e.target.getStage() || e.target.name() === 'bg';
+            if (isCanvasClick) {
+              const stage = stageRef.current;
+              const pointer = stage?.getPointerPosition();
+              if (pointer) {
+                const local = stageToObjectLocal(pointer);
+                if (local) {
+                  addHitboxPoint(selectedObject.id, local);
+                }
+              }
+            }
+            return;
+          }
+
           if (e.target === e.target.getStage() || e.target.name() === 'bg') {
             setSelectedId(null);
           }
@@ -246,12 +290,17 @@ export function SceneCanvas() {
               obj={obj}
               sprites={sprites}
               isSelected={selectedId === obj.id}
+              hitboxEditMode={hitboxEditMode}
               onSelect={() => setSelectedId(obj.id)}
             />
           ))}
         </Layer>
       </Stage>
-      <span className={styles.hint}>Scroll: zoom · Botão do meio: pan · Esc: cancelar interacao presa · Delete: remover selecionado · Snap via toggle na toolbar</span>
+      <span className={styles.hint}>
+        {hitboxEditMode
+          ? 'Modo hitbox: clique no canvas para criar pontos, arraste os pontos e use Esc para sair.'
+          : 'Scroll: zoom · Botão do meio: pan · Esc: cancelar interacao presa · Delete: remover selecionado · Snap via toggle na toolbar'}
+      </span>
     </div>
   );
 }
