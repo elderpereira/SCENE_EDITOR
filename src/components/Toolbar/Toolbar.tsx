@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useSceneStore } from '../../store/useSceneStore';
 import { exportScene, exportSceneZip } from '../../utils/exportScene';
 import { buildProjectData, downloadProjectFile, readProjectFile } from '../../utils/projectFile';
+import { savePreviewScene } from '../../utils/previewScene';
 import styles from './Toolbar.module.css';
 
 export function Toolbar() {
@@ -13,6 +14,8 @@ export function Toolbar() {
   const toggleGrid = useSceneStore((s) => s.toggleGrid);
   const snapToGrid = useSceneStore((s) => s.snapToGrid);
   const toggleSnapToGrid = useSceneStore((s) => s.toggleSnapToGrid);
+  const previewMode = useSceneStore((s) => s.previewMode);
+  const setPreviewMode = useSceneStore((s) => s.setPreviewMode);
   const loadProject = useSceneStore((s) => s.loadProject);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -114,6 +117,34 @@ export function Toolbar() {
 
       <div className={styles.spacer} />
 
+      <button
+        className={previewMode ? 'primary' : 'secondary'}
+        onClick={() => setPreviewMode(!previewMode)}
+        title="Mostrar hitboxes no editor"
+      >
+        Ver hitbox
+      </button>
+
+      <button
+        className="secondary"
+        onClick={() => {
+          const data = { sceneConfig, objects, sprites };
+          savePreviewScene(data);
+
+          const previewUrl = `${window.location.origin}${window.location.pathname}?preview=phaser`;
+          const previewWindow = window.open(previewUrl, '_blank');
+
+          if (previewWindow) {
+            setTimeout(() => {
+              previewWindow.postMessage({ type: 'phaser-preview', data }, window.location.origin);
+            }, 200);
+          }
+        }}
+        title="Abrir preview Phaser em nova aba"
+      >
+        ▶ Teste Phaser
+      </button>
+
       <button className="secondary" onClick={openProjectPicker} title="Abrir projeto salvo em arquivo JSON">
         📂 Abrir Projeto
       </button>
@@ -123,8 +154,8 @@ export function Toolbar() {
       <button className="secondary" onClick={() => exportScene(sceneConfig, objects, sprites)}>
         ⬇ Exportar JSON
       </button>
-      <button onClick={() => exportSceneZip(sceneConfig, objects, sprites)}>
-        📦 Exportar ZIP
+      <button className="secondary" onClick={() => exportSceneZip(sceneConfig, objects, sprites)} title="Exporta um ZIP que inclui assets, scene.json e um preview Phaser standalone">
+        📦 Exportar ZIP Phaser
       </button>
     </div>
   );

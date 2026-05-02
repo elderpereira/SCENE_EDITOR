@@ -71,6 +71,9 @@ interface SceneStore {
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
 
+  previewMode: boolean;
+  setPreviewMode: (enabled: boolean) => void;
+
   loadProject: (project: EditorProjectData) => void;
 
   showGrid: boolean;
@@ -297,6 +300,8 @@ export const useSceneStore = create<SceneStore>()(persist((set, get) => ({
 
   selectedId: null,
   setSelectedId: (id) => set({ selectedId: id, hitboxEditMode: false }),
+  previewMode: false,
+  setPreviewMode: (enabled: boolean) => set({ previewMode: enabled }),
   loadProject: (project) =>
     set({
       sprites: project.sprites,

@@ -56,6 +56,125 @@ function triggerDownload(blob: Blob, filename: string) {
 	URL.revokeObjectURL(url);
 }
 
+function buildPhaserPreviewHtml() {
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Phaser Scene Preview</title>
+	<style>
+		html, body { margin: 0; width: 100vw; height: 100vh; background: #13131a; color: #fff; }
+		body { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+		#game { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+	</style>
+</head>
+<body>
+	<div id="game"></div>
+	<script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+	<script src="preview.js"></script>
+</body>
+</html>`;
+}
+
+function buildPhaserPreviewScript(data: unknown) {
+	return `const sceneData = ${JSON.stringify(data, null, 2)};
+
+class PreviewScene extends Phaser.Scene {
+	constructor() {
+		super('preview-scene');
+	}
+
+	preload() {
+		sceneData.assets.forEach((asset) => {
+			this.load.image(asset.key, asset.path);
+		});
+	}
+
+	create() {
+		this.cameras.main.setBackgroundColor(
+			Phaser.Display.Color.HexStringToColor(sceneData.scene.background).color
+		);
+
+		const sortedObjects = [...sceneData.gameObjects].sort((a, b) => a.depth - b.depth);
+
+		sortedObjects.forEach((obj) => {
+			const objectContainer = this.add.container(obj.x, obj.y);
+			objectContainer.rotation = Phaser.Math.DegToRad(obj.angle);
+
+			const baseScaleX = obj.flipX ? -obj.scaleX : obj.scaleX;
+			const baseScaleY = obj.flipY ? -obj.scaleY : obj.scaleY;
+			objectContainer.setScale(baseScaleX, baseScaleY);
+
+			const sprite = this.add.image(0, 0, obj.spriteKey).setOrigin(0.5, 0.5);
+			sprite.setScale(1, 1);
+			sprite.setAlpha(obj.alpha);
+			objectContainer.add(sprite);
+
+			if (obj.hitbox?.enabled) {
+				const hitboxGraphics = this.add.graphics();
+				hitboxGraphics.lineStyle(2, 0xffcc00, 1);
+				hitboxGraphics.fillStyle(0xffcc00, 0.12);
+
+				if (obj.hitbox.mode === 'polygon' && obj.hitbox.points?.length >= 3) {
+					const points = obj.hitbox.points.map((point) => new Phaser.Math.Vector2(point.x, point.y));
+					hitboxGraphics.fillPoints(points, true);
+					hitboxGraphics.strokePoints(points, true);
+					const polygon = new Phaser.Geom.Polygon(obj.hitbox.points.flatMap((point) => [point.x, point.y]));
+					hitboxGraphics.setInteractive(polygon, Phaser.Geom.Polygon.Contains);
+				} else {
+					hitboxGraphics.fillRect(
+					obj.hitbox.offsetX,
+					obj.hitbox.offsetY,
+					obj.hitbox.width,
+					obj.hitbox.height
+				);
+					hitboxGraphics.strokeRect(
+					obj.hitbox.offsetX,
+					obj.hitbox.offsetY,
+					obj.hitbox.width,
+					obj.hitbox.height
+				);
+					const rect = new Phaser.Geom.Rectangle(
+					obj.hitbox.offsetX,
+					obj.hitbox.offsetY,
+					obj.hitbox.width,
+					obj.hitbox.height
+					);
+					hitboxGraphics.setInteractive(rect, Phaser.Geom.Rectangle.Contains);
+				}
+
+				hitboxGraphics.on('pointerover', () => {
+					objectContainer.setScale(baseScaleX * 1.05, baseScaleY * 1.05);
+				});
+
+				hitboxGraphics.on('pointerout', () => {
+					objectContainer.setScale(baseScaleX, baseScaleY);
+				});
+
+				objectContainer.add(hitboxGraphics);
+			}
+		});
+	}
+}
+
+const config = {
+	type: Phaser.AUTO,
+	parent: 'game',
+	scale: {
+		mode: Phaser.Scale.NONE,
+		autoCenter: Phaser.Scale.CENTER_BOTH,
+		width: sceneData.scene.width,
+		height: sceneData.scene.height,
+	},
+	backgroundColor: Phaser.Display.Color.HexStringToColor(sceneData.scene.background).color,
+	scene: PreviewScene,
+};
+
+new Phaser.Game(config);
+`;
+}
+
 export function exportScene(config: SceneConfig, objects: SceneObject[], sprites: SpriteAsset[]): void {
 	const data = buildSceneData(config, objects, sprites);
 	const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -77,8 +196,22 @@ export async function exportSceneZip(
 		assetsFolder.file(`${sprite.key}.${sprite.ext}`, blob);
 	}
 
+	// incluir o arquivo de skill Markdown (se presente no repositório) na raiz do ZIP
+	try {
+		const skillUrl = new URL('../../skills/PHASER_SCENE_EDITOR_SKILL.md', import.meta.url);
+		const skillResp = await fetch(skillUrl.href);
+		if (skillResp && skillResp.ok) {
+			const skillText = await skillResp.text();
+			root.file('PHASER_SCENE_EDITOR_SKILL.md', skillText);
+		}
+	} catch {
+		// ignorar falhas — não é crítico
+	}
+
 	const data = buildSceneData(config, objects, sprites);
 	root.file('scene.json', JSON.stringify(data, null, 2));
+	root.file('index.html', buildPhaserPreviewHtml());
+	root.file('preview.js', buildPhaserPreviewScript(data));
 
 	const preloadLines = sprites
 		.map((s) => `    this.load.image('${s.key}', 'assets/${s.key}.${s.ext}');`)

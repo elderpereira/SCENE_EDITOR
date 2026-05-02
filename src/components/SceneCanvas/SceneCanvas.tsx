@@ -18,6 +18,7 @@ export function SceneCanvas() {
   const removeObject = useSceneStore((s) => s.removeObject);
   const showGrid = useSceneStore((s) => s.showGrid);
   const hitboxEditMode = useSceneStore((s) => s.hitboxEditMode);
+  const previewMode = useSceneStore((s) => s.previewMode);
   const addHitboxPoint = useSceneStore((s) => s.addHitboxPoint);
   const selectedObject = objects.find((obj) => obj.id === selectedId) ?? null;
 
@@ -291,6 +292,7 @@ export function SceneCanvas() {
               sprites={sprites}
               isSelected={selectedId === obj.id}
               hitboxEditMode={hitboxEditMode}
+              previewMode={previewMode}
               onSelect={() => setSelectedId(obj.id)}
             />
           ))}

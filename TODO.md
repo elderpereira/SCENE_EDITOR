@@ -120,4 +120,5 @@
 - [ ] Multi-seleção de objetos
 - [ ] Suporte a spritesheets (frame específico)
 - [ ] Preview da cena com Phaser real (iframe)
+  - [ ] Garantir que hitbox seja renderizada no mesmo contêiner do sprite para compartilhar escala/rotação
 - [ ] Layers / grupos de objetos
